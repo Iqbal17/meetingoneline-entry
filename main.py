@@ -40,6 +40,27 @@ Pass 2 — tried ending "...since the last meeting about the email." and
 dropped it: repeating "meeting" muddies the loop and the extra clause
 slows the sentence. The clean ending "...since the last meeting." lands
 harder because the loop snaps shut on the word the reader already expects.
+
+Revision pass (pipeline review, output byte-identical):
+Candidate E — "Status: unchanged." LOSES. Two words, kills the meeting,
+but it is a label, not a sentence anyone would say out loud as the meeting
+itself, and it loses the email loop that makes A recognisable to anyone
+who has ever received the same status email twice.
+Candidate F — "We are meeting to confirm that the email you already read
+is the email we already sent." LOSES, close. It names the absurdity
+directly, but it explains the joke instead of being the update; A wins
+because its deadpan "The update is:" framing performs the meeting rather
+than commenting on it, and its loop (email -> last meeting -> this one)
+implies an infinite regress F states only once.
+Candidate G — "Nothing to report, again." LOSES. Tight and relatable, but
+"again" does all the work and the line could fit any recurring chore, not
+specifically a meeting that an email already replaced.
+Decision after revision: keep A exactly as written. The only code change
+in this pass is structural: a dedicated gate-guard helper (guard_line)
+that rejects empty, oversized, or multi-line candidates before the
+existing gate check runs, so a future edit to LINE fails loudly at the
+guard instead of silently writing a bad entry file. The shipped line,
+its wording, and the bytes written to entry.txt are unchanged.
 """
 
 import os
@@ -48,6 +69,21 @@ MAX_CHARS = 200
 
 LINE = ("The update is: nothing has changed since the email, and the email "
         "has not changed since the last meeting.")
+
+
+def guard_line(line):
+    """Gate-guard: reject empty, oversized, or multi-line candidates early.
+
+    Runs before check_gate so a bad future edit to LINE fails with a
+    specific reason instead of a generic gate failure at write time.
+    """
+    if not isinstance(line, str) or line.strip() == "":
+        raise SystemExit("guard: line is empty or not text")
+    if len(line) > MAX_CHARS:
+        raise SystemExit("guard: line exceeds the 200 character gate")
+    if "\n" in line or "\r" in line:
+        raise SystemExit("guard: line must be a single line")
+    return line
 
 
 def check_gate(line):
@@ -62,6 +98,7 @@ def entry_path():
 
 
 def main():
+    guard_line(LINE)
     if not check_gate(LINE):
         raise SystemExit("line fails the 1-200 character gate")
     with open(entry_path(), "w", encoding="utf-8") as f:
